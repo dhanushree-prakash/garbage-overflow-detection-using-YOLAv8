@@ -15,6 +15,13 @@ Folder Structure:
 7. Abstract/           -> One-page abstract ✏️
 8. Readme.txt          -> Instructions to run the project 📝
 
+## Project Documents
+
+- [Project Report](Project_Report/Project_Report.docx)
+- [Journal Paper](Journal_Paper/Journal_Paper.docx)
+- [Abstract](Abstract/Abstract.docx)
+
+
 Requirements:
 - Python 3.10 or higher 🐍
 - pip (Python package installer) 📦
