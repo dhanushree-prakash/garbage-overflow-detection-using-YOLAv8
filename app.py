@@ -1,10 +1,8 @@
 import cv2
 from ultralytics import YOLO
-import argparse
-from flask import Flask, Response, render_template, request
+from flask import Flask, Response, render_template, request, redirect, url_for
 import tempfile
 import os
-
 
 # Flask APPLICATION
 app = Flask(__name__)
@@ -18,14 +16,18 @@ terminate_flag = False
 
 # Define a generator function to stream video frames to the web page
 def generate(file_path):
+    global terminate_flag
     if file_path == "camera":
         cap = cv2.VideoCapture(0)
     else:
         cap = cv2.VideoCapture(file_path)
-    while cap.isOpened():
-        # Read a frame from the video file
-        success, frame = cap.read()
 
+    while cap.isOpened():
+        # Break immediately if stop is requested
+        if terminate_flag:
+            break
+
+        success, frame = cap.read()
         if success:
             # Run YOLOv8 inference on the frame
             results = model(frame)
@@ -39,13 +41,10 @@ def generate(file_path):
             # Yield the JPEG data to Flask
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n')
-            if cv2.waitKey(1) == 27 or terminate_flag:  # Exit when ESC key is pressed or terminate flag is set
-                break
         else:
-            # Break the loop if the video file capture fails
             break
+
     cap.release()
-    os._exit(0)  # Terminate the script when the video stream ends or terminate flag is set
 
 # Define a route to serve the video stream
 @app.route('/video_feed')
@@ -76,7 +75,14 @@ def index():
 def stop():
     global terminate_flag
     terminate_flag = True
-    return "Process has been Terminated"
+    print("Camera stopped")
+    return redirect(url_for('index'))  # Redirect back to home
+
+@app.route('/stop_page')
+def stop_page():
+    global terminate_flag
+    terminate_flag = True  # Stop the video feed
+    return render_template('stop.html')  # Show stop.html
 
 if __name__ == '__main__':
     app.run(debug=True)
