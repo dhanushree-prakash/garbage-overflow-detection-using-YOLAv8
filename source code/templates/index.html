@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BinAlert 360</title>
+<style>
+/* Reset & Body */
+* { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI', sans-serif; }
+body {
+  background: linear-gradient(135deg,#0f0f0f,#121212);
+  color:#fff; display:flex; flex-direction:column; min-height:100vh; overflow-x:hidden; position:relative;
+}
+
+/* Header */
+header {
+  display:flex; align-items:center; justify-content:center; padding:20px; border-bottom:1px solid #333; z-index:10; position:relative;
+}
+header img.logo { width:70px; height:70px; margin-right:15px; }
+header h1 { font-size:2rem; font-weight:700; background: linear-gradient(90deg,#79dd2d,#9dff7a); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+
+/* Layout */
+.container { display:flex; flex-wrap:wrap; justify-content:center; align-items:flex-start; gap:30px; padding:30px; flex:1; position:relative; z-index:10; }
+header img.logo { width:70px; height:70px; margin-right:15px; }
+
+/* Glass Panels */
+.glass { background:rgba(255,255,255,0.05); border-radius:16px; border:1px solid rgba(255,255,255,0.2); backdrop-filter:blur(12px); box-shadow:0 8px 24px rgba(0,0,0,0.5); }
+
+/* Controls / Sidebar */
+.controls { padding:25px; display:flex; flex-direction:column; gap:15px; min-width:260px; }
+.controls button,.controls label.button{ display:block; padding:14px 20px; border-radius:12px; border:none; font-weight:600; cursor:pointer; transition:all 0.3s ease; text-align:center; }
+.controls label.button,.controls button.button{ background:#79dd2d; color:#000; }
+.controls button.button1{ background:#f65c5c; color:#fff; }
+.controls label.button:hover,.controls button.button:hover{ transform:translateY(-2px) scale(1.05); box-shadow:0 0 16px #79dd2d; }
+.controls button.button1:hover{ background:#d43e3e; box-shadow:0 0 16px #f65c5c; }
+input[type="file"]{ display:none; }
+#selected-file-name{ color:#79dd2d; font-weight:bold; margin-top:5px; }
+
+/* Video Panel + Suggestions */
+.video-container { position:relative; display:flex; flex-direction:column; align-items:center; }
+.video-panel{ padding:15px; display:flex; justify-content:center; align-items:center; min-width:520px; max-width:720px; position:relative; margin-bottom:15px; }
+.video-panel img{ width:100%; border-radius:16px; border:2px solid rgba(255,255,255,0.15); }
+
+/* AI-powered Suggestions Panel */
+#suggestions{ display:flex; gap:10px; margin-top:5px; flex-wrap:wrap; justify-content:center; }
+#suggestions button{ padding:10px 14px; border:none; border-radius:12px; background:#79dd2d; color:#000; cursor:pointer; font-weight:600; transition:all 0.3s ease; }
+#suggestions button:hover{ transform:translateY(-2px) scale(1.05); box-shadow:0 0 12px #79dd2d; }
+
+/* Full-Screen Spinner Overlay */
+.spinner-overlay{ position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:9999; display:none; }
+.spinner{ border:8px solid rgba(255,255,255,0.2); border-top:8px solid #79dd2d; border-radius:50%; width:60px; height:60px; animation:spin 1s linear infinite; }
+
+/* Toast Notifications */
+#alertBox{ position: fixed; top:20px; left:20px; background-color:#f65c5c; padding:12px 20px; border-radius:10px; display:none; font-weight:bold; color:#fff; box-shadow:0 6px 20px rgba(0,0,0,0.4); animation:fadeInOut 3s ease forwards; z-index:10000; }
+
+/* Footer */
+footer{ text-align:center; padding:15px; border-top:1px solid #333; font-size:0.9rem; color:#aaa; position:relative; z-index:10; }
+footer q{ color:#79dd2d; font-style:italic; transition:opacity 1s ease; display:block; }
+
+/* Particle Background */
+canvas#particles{ position:fixed; top:0; left:0; width:100%; height:100%; z-index:0; pointer-events:none; }
+
+/* Animations */
+@keyframes spin{100%{transform:rotate(360deg);}}
+@keyframes fadeInOut{0%{opacity:0; transform:translateY(-10px);}10%,90%{opacity:1; transform:translateY(0);}100%{opacity:0; transform:translateY(-10px);}}
+
+@media(max-width:1100px){.container{flex-direction:column;align-items:center;}.video-panel,.controls{width:90%;}}
+</style>
+</head>
+<body>
+
+<!-- Particle Canvas -->
+<canvas id="particles"></canvas>
+
+<!-- Header -->
+<header style="position: relative; display: flex; align-items: center; justify-content: center; padding: 10px; border-bottom:1px solid #333; z-index:10;">
+  <!-- Logo + Title Centered -->
+  <div style="display: flex; align-items: center; gap: 15px;">
+    <img src="{{ url_for('static', filename='logo.png') }}" alt="SmartBin Logo" class="logo" style="width:100px; height:100px;">
+    <h1 style="font-size:2rem; font-weight:700; background: linear-gradient(90deg,#79dd2d,#9dff7a); -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin:0;">
+      BinAlert 360
+    </h1>
+  </div>
+
+  <!-- Exit Button (POST to /stop) -->
+<a href="{{ url_for('stop_page') }}" 
+   style="position: absolute; right: 20px; top: 50%; transform: translateY(-50%);
+          background-color: red; color: white; padding: 8px 15px; border-radius: 5px;
+          text-decoration: none; font-weight: 600;">
+   Exit
+</a>
+
+</header>
+
+
+
+
+<div class="container">
+
+  <!-- Controls -->
+  <div class="controls glass">
+    <form method="POST" enctype="multipart/form-data" onsubmit="showSpinner()">
+      <label for="file-upload" class="button">📂 Select File</label>
+      <input id="file-upload" type="file" name="file" onchange="document.getElementById('selected-file-name').innerHTML=this.files[0].name;">
+      <div id="selected-file-name"></div>
+      <button type="submit" class="button">⬆ Upload</button>
+    </form>
+    <form method="POST" onsubmit="showSpinner()">
+      <input type="hidden" name="camera" value="true">
+      <button type="submit" class="button">📷 Capture from Camera</button>
+    </form>
+    <form action="/stop" method="POST">
+      <button type="submit" class="button1">⏹ Stop</button>
+    </form>
+  </div>
+
+  <!-- Video Panel + AI Suggestions -->
+  <div class="video-container">
+    <div class="video-panel glass">
+      {% if file_path %}
+        <img src="{{ url_for('video_feed') }}?file={{ file_path }}" alt="Video Feed" onload="hideSpinner()">
+      {% else %}
+        <span>📹 Waiting for input...</span>
+      {% endif %}
+    </div>
+
+    <!-- AI Suggestions -->
+    <div id="suggestions" class="glass">
+      <button onclick="sendAlert()">🚨 Send Alert</button>
+      <button onclick="showAlert('🧹 Cleaning scheduled!')">🧹 Schedule Cleaning</button>
+      <button onclick="showAlert('🔍 Marked for inspection!')">🔍 Mark for Inspection</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Spinner Overlay -->
+<div class="spinner-overlay" id="spinnerOverlay">
+  <div class="spinner"></div>
+</div>
+
+<!-- Toast Alerts -->
+<div id="alertBox"></div>
+
+<!-- Footer -->
+<footer class="glass">
+  <q id="footerQuote">Cleanliness is not just about hygiene, it’s about dignity.</q>
+  <p>BinAlert 360 © 2025</p>
+</footer>
+
+<script>
+// Full-screen Spinner
+function showSpinner(){ document.getElementById("spinnerOverlay").style.display="flex"; }
+function hideSpinner(){ document.getElementById("spinnerOverlay").style.display="none"; }
+
+// Toast Notifications
+function showAlert(message){
+  const alertBox = document.getElementById("alertBox");
+  alertBox.innerHTML = message;
+  alertBox.style.display="block";
+  setTimeout(()=>{ alertBox.style.display="none"; },3000);
+}
+
+// Alert / Complaint Simulation
+function sendAlert(){
+  const alertId = "SBIN-"+Math.floor(Math.random()*9000+1000);
+  showAlert(`🚨 Alert sent! Complaint ID: ${alertId}`);
+}
+
+// Footer Quotes Rotation
+const quotes = [
+  "Cleanliness is not just about hygiene, it’s about dignity.",
+  "A clean environment reflects a healthy mind.",
+  "Small actions, big impact on cleanliness.",
+  "Smart waste management is the future.",
+  "Every bin counts towards a cleaner world."
+];
+let quoteIndex = 0;
+setInterval(()=>{
+  quoteIndex = (quoteIndex+1)%quotes.length;
+  const footerQuote = document.getElementById("footerQuote");
+  footerQuote.style.opacity=0;
+  setTimeout(()=>{ footerQuote.textContent=quotes[quoteIndex]; footerQuote.style.opacity=1; },500);
+},8000);
+
+// Particle Background
+const canvas = document.getElementById('particles');
+const ctx = canvas.getContext('2d');
+canvas.width=window.innerWidth; canvas.height=window.innerHeight;
+
+const particlesArray = [];
+for(let i=0;i<80;i++){
+  particlesArray.push({x:Math.random()*canvas.width, y:Math.random()*canvas.height, r:Math.random()*2+1, dx:(Math.random()-0.5)*0.5, dy:(Math.random()-0.5)*0.5});
+}
+
+function animateParticles(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  particlesArray.forEach(p=>{
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,p.r,0,Math.PI*2,false);
+    ctx.fillStyle='rgba(121,221,45,0.4)';
+    ctx.fill();
+    p.x+=p.dx; p.y+=p.dy;
+    if(p.x<0||p.x>canvas.width)p.dx*=-1;
+    if(p.y<0||p.y>canvas.height)p.dy*=-1;
+  });
+  requestAnimationFrame(animateParticles);
+}
+animateParticles();
+window.addEventListener('resize',()=>{ canvas.width=window.innerWidth; canvas.height=window.innerHeight; });
+</script>
+
+</body>
+</html>
